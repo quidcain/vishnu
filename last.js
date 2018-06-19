@@ -10,6 +10,8 @@ function CyclicalArray(array) {
 	this.values = array;
 }
 CyclicalArray.prototype.getValue = function() {
+	if (!this.values || this.values.length == 0)
+		return 0;
 	if (this.currentIndex == this.values.length) {
 		this.currentIndex = 0;
 	}
