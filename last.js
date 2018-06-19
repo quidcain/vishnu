@@ -63,11 +63,11 @@ var SuperRecovery = {
 	   }
 	   if (this.occurrenceCounter== Math.abs(curOccurr)) {
 	      if (curOccurr == 0 && curTresh == 0) {
-	         log('skipping the array elements');
+	         log('Skipping the array elements');
 	      } else if (curOccurr >= 0) {
-	         log('val is less than ', curTresh ,' continuously in ',curOccurr,' running times', lastGame.bust ,'x');
+	         log('Val is less than ', curTresh ,' continuously in ',curOccurr,' running times', lastGame.bust ,'x');
 	      } else if (curOccurr <= 0) {
-	         log('val is greater than ', curTresh ,' continuously in ',Math.abs(curOccurr),' running times', lastGame.bust ,'x');
+	         log('Val is greater than ', curTresh ,' continuously in ', Math.abs(curOccurr),' running times', lastGame.bust ,'x');
 	      }
 	      returnValue = true;
 	      this.occurrenceCounter = 0;
@@ -78,6 +78,15 @@ var SuperRecovery = {
 	      this.currentIndex = 0;
 	   }
 	   return returnValue;
+	},
+	containsNow: function(sym) {
+		if (this.occurrence[this.currentIndex] == sym) {
+			return true;
+		}
+		if (this.threshold[this.currentIndex] == sym) {
+			return true;
+		}
+		return false;
 	}
 };
 // ------------------------------------------------------------------------------------------------------------------------
@@ -104,7 +113,7 @@ function GetLastGame() {
 }
 // ------------------------------------------------------------------------------------------------------------------------
 function DoRecoveryMode() {
-	log('Bet so far this loss streak: ' + BetSoFar);
+	//log('Bet so far this loss streak: ' + BetSoFar);
 	//var RecoverBet = Math.ceil((Math.pow(Math.ceil(100 / ((RecoveryCashouts[gameState-1] * 100) - 100)), gameState) * BetSoFar)); 
 	var RecoverBet = RecoveryBets.getValue();
 	if (LuckyRecovery != 0) { 
@@ -165,12 +174,12 @@ engine.on('GAME_STARTING', function()  {
 		case 6:
 		case 7:
 		case 8:
-			if (gamesToSkip == -1) { 
+			if (gamesToSkip == -1 || gamesToSkip == 'r' || SuperRecovery.containsNow('r')) { 
 				gameState = -1; 
 				return; 
 			}
 
-			if (gamesToSkip == -2) { 
+			if (gamesToSkip == -2 || gamesToSkip == 's' || SuperRecovery.containsNow('s')) { 
 				gameState = -2; 
 				return; 
 			}
