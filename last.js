@@ -1,9 +1,5 @@
 var config = {};
 // ------------------------------------------------------------------------------------------------------------------------
-var BaseBet = 1;    		// Set the base bet here.
-// ------------------------------------------------------------------------------------------------------------------------
-var BaseCashout = 2;		// Set the base cashout here
-// ------------------------------------------------------------------------------------------------------------------------
 //Constructor for Recovery and skips arrays
 function CyclicalArray(array) {
 	this.currentIndex = 0;
@@ -18,7 +14,11 @@ CyclicalArray.prototype.getValue = function() {
 	return this.values[this.currentIndex++];
 };
 // ------------------------------------------------------------------------------------------------------------------------
-var Skips = new CyclicalArray([0, 1, 2, 3, -0, 2, 3, -2]);;
+var BaseBet = new CyclicalArray([1, 2, 3, 4]);    		// Set the base bet here.
+// ------------------------------------------------------------------------------------------------------------------------
+var BaseCashout = new CyclicalArray([2, 1.5, 1.5, 3]);		// Set the base cashout here
+// ------------------------------------------------------------------------------------------------------------------------
+var Skips = new CyclicalArray([0, 1, 2, 3, -0, 2, 3, -2]);
 // ------------------------------------------------------------------------------------------------------------------------
 var RecoveryCashouts = new CyclicalArray([1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2]);	// Set the recovery cashouts here
 var RecoveryBets = new CyclicalArray([5, 6, 7, 8, 9, 10, 11, 12]);	// Set the bets to do after a loss here
@@ -168,7 +168,7 @@ engine.on('GAME_STARTING', function()  {
 			BetSoFar = SoftRecovery;
 			break;
 		case 0:
-			PlaceBet(BaseBet, BaseCashout);
+			PlaceBet(BaseBet.getValue(), BaseCashout.getValue());
 			break;
 		case 1:
 		case 2:
