@@ -53,7 +53,7 @@ var SuperRecovery = {
 	   var curOccurr = this.occurrence[this.currentIndex];
 	   var curTresh = this.threshold[this.currentIndex];
 	   var returnValue = false;
-	   //log ("curOccurr = ", curOccurr, " curTresh = ", curTresh); 
+	   //log (`curOccurr = ${curOccurr} curTresh = ${curTresh}`); 
 	   if (curOccurr  == 0 && curTresh == 0) {
 	      this.occurrenceCounter = 0;
 	   } else if (curOccurr > 0 && lastGame.bust <= curTresh) {
@@ -65,17 +65,19 @@ var SuperRecovery = {
 	   }
 	   if (this.occurrenceCounter== Math.abs(curOccurr)) {
 	      if (curOccurr == 0 && curTresh == 0) {
-	         log('Skipping the array elements');
+	         log("Skipping the array elements");
 	      } else if (curOccurr >= 0) {
-	         log('Val is less than ', curTresh ,' continuously in ',curOccurr,' running times', lastGame.bust ,'x');
+	         log(`Val is less than ${curTresh} continuously in ${curOccurr} running times ${lastGame.bust}x`);
 	      } else if (curOccurr <= 0) {
-	         log('Val is greater than ', curTresh ,' continuously in ', Math.abs(curOccurr),' running times', lastGame.bust ,'x');
+	         log(`Val is greater than ${curTresh} continuously in ${Math.abs(curOccurr)} running times ${lastGame.bust}x`);
 	      }
 	      returnValue = true;
 	      this.occurrenceCounter = 0;
 	      this.currentIndex++;
+	   } else {
+	   		log(`Waiting for ${Math.abs(curOccurr) - this.occurrenceCounter} SuperRecovery to complete`);
 	   }
-	   log('Game crashed at ', lastGame.bust ,'x');
+	   //log(`Game crashed at ${lastGame.bust}x`);
 	   if (this.currentIndex == this.occurrence.length - 1) {
 	      this.currentIndex = 0;
 	   }
@@ -115,7 +117,7 @@ function GetLastGame() {
 }
 // ------------------------------------------------------------------------------------------------------------------------
 function DoRecoveryMode() {
-	//log('Bet so far this loss streak: ' + BetSoFar);
+	//log(`Bet so far this loss streak: ${BetSoFar}`);
 	//var RecoverBet = Math.ceil((Math.pow(Math.ceil(100 / ((RecoveryCashouts[gameState-1] * 100) - 100)), gameState) * BetSoFar)); 
 	var RecoverBet = RecoveryBets.getValue();
 	if (LuckyRecovery != 0) { 
@@ -126,19 +128,19 @@ function DoRecoveryMode() {
 }
 // ------------------------------------------------------------------------------------------------------------------------
 function PlaceBet(bits, cashout) {
-	log('Betting ' + bits + ' for cashout ' + cashout + 'x');
+	log(`Betting ${bits} for cashout ${cashout}x`);
 	BetSoFar += bits;
 	if (!TestMode.active) {
 		engine.bet(bits * 100, cashout);
 	}
 	TestMode.lastGame.wager = true;
 	TestMode.lastGame.cashout = cashout;
-	log(' ');
+	log(" ");
 }
 // ------------------------------------------------------------------------------------------------------------------------
 
 var startBalance = userInfo.balance / 100; 
-log('Starting script with balance ' + startBalance);
+log(`Starting script with balance ${startBalance}`);
 var gameState = 0; 
 var gamesToSkip = 0; 
 var BetSoFar = 0; 
@@ -150,7 +152,7 @@ engine.on('GAME_STARTING', function()  {
 	}
 	if((games % 10) == 0) {
 		var sessionResult = Math.ceil(((userInfo.balance / 100) - startBalance) * 100) / 100;
-		log('Current session result: ', sessionResult, ' bits');
+		log(`Current session result: ${sessionResult} bits`);
 		if (sessionResult >= ProfitThresholdToStopScript) {
 			gameState = -2;
 		}
@@ -193,10 +195,10 @@ engine.on('GAME_STARTING', function()  {
 			} else {
 				gamesToSkip--;
 				if (gamesToSkip === 0) {
-					log('Recovery after this game !');
+					log("Recovery after this game !");
 				}
 				else {
-					log('Skipping ' + gamesToSkip + ' more games...');
+					log(`Skipping ${gamesToSkip} more games...`);
 				}
 			}
 			break;
@@ -216,9 +218,9 @@ engine.on('GAME_ENDED', function() {
 	
 	if (lastGame.cashedAt) {
 		if(gameState == 0) {
-			log('Won!');
+			log("Won!");
 		} else {
-			log('Recovered from ' + gameState + ' deep loss streak!');
+			log(`Won! Recovered from ${gameState} deep loss streak!`);
 		}
 		gameState = 0;
 		BetSoFar = SoftRecovery;
@@ -226,7 +228,9 @@ engine.on('GAME_ENDED', function() {
 		gameState++;
 		gamesToSkip = Skips.getValue();
 		if(gamesToSkip > 0) {
-			log('Lost! Waiting ' + gamesToSkip + ' games...');
+			log(`Lost! Waiting ${gamesToSkip} games...`);
+		} else {
+			log("Lost!");
 		}
 	}
 	TestMode.lastGame.reset();
