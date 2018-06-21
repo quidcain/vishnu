@@ -94,15 +94,45 @@ var SuperRecovery = {
 	}
 };
 // ------------------------------------------------------------------------------------------------------------------------
-function MasterConditionPassed() { //return true to pass master condition
-	//for the sake of example:
-	//var games = engine.history.toArray();
-	//if (games[0].bust < 5 && games[1].bust < 5 && games[2].bust < 5) {
-	//   log("Below 5 3 or more times!")
-	//	 return true;
-	//} else {
-	return false;
-	//}
+var MasterRecovery = {
+	enable: true, //set to false to disable checks for MasterRecovery
+	occurrence: [11, 5, 4, 2],
+	threshold: [2, 2, -2, 1],
+	currentMasterSlot: undefined,
+	masterCashouts: [
+		[1, 2, 3, 4],
+		[1, 2, 3, 4],
+		[1, 2, 3, 4],
+		[1, 2, 3, 4]
+	],
+	masterBets: [
+		[1, 2, 3, 4],
+		[1, 2, 3, 4],
+		[1, 2, 3, 4],
+		[1, 2, 3, 4]
+	],
+	isPassed: function() {
+		var games = engine.history.toArray();
+		for (let i = 0; i < this.occurrence.length; i++) {
+			/*let curOccurr = 0;
+			for (let j = 0; j < occurrence[i]; j++) {
+				if (games[j] <= threshold[i]) {
+					curOccurr++;
+				}
+			}
+			if (curOccurr == occurrence[i]) {
+				return true;	
+			}*/
+			var occurrenceGames = games.slice(0, this.occurrence[i]);
+			if (occurrenceGames.every(val => val <= this.threshold[i])) {
+				return true;
+			}
+		}
+		return false;
+	}
+};
+if (MasterRecovery.occurrence.length != MasterRecovery.threshold.length) {
+	stop("MasterRecovery.occurrence must be equal MasterRecovery.threshold")
 }
 // ------------------------------------------------------------------------------------------------------------------------
 function GetLastGame() {
@@ -115,6 +145,125 @@ function GetLastGame() {
 	}
 	return lastGame;
 }
+// ------------------------------------------------------------------------------------------------------------------------
+var BaseMode = {
+	statCallback: function() {},
+	start: function() {
+		if((games % 10) == 0) {
+			var sessionResult = Math.ceil(((userInfo.balance / 100) - startBalance) * 100) / 100;
+			log(`Current session result: ${sessionResult} bits`);
+			this.statCallback();
+		}
+
+		this.startCallback();
+		
+		games++;	
+	},
+	end: function() {
+		var lastGame = GetLastGame();
+		if (!lastGame.wager) {
+			return;
+		}
+		
+		this.endCallback();
+
+		TestMode.lastGame.reset();	
+	}
+};
+// ------------------------------------------------------------------------------------------------------------------------
+var NormalMode = {
+	statCallback: function() {
+		if (sessionResult >= ProfitThresholdToStopScript) {
+			gameState = -2;
+		}
+	},
+	startCallback: function() {
+		if (MasterRecovery.isPassed()) {
+			MasterMode.startCallback();
+			gameMode = MasterMode;
+			return;
+		}
+		switch(gameState) {
+			case -2:
+				stop("Stopped");
+				break;
+			case -1:
+				log("Triggering reset from skips array"); 
+				gameState = 0;
+				BetSoFar = SoftRecovery;
+				break;
+			case 0:
+				PlaceBet(BaseBet.getValue(), BaseCashout.getValue());
+				break;
+			case 1:
+			case 2:
+			case 3:
+			case 4:
+			case 5:
+			case 6:
+			case 7:
+			case 8:
+				if (gamesToSkip == -1 || gamesToSkip == 'r' || SuperRecovery.containsNow('r')) { 
+					gameState = -1; 
+					return; 
+				}
+
+				if (gamesToSkip == -2 || gamesToSkip == 's' || SuperRecovery.containsNow('s')) { 
+					gameState = -2; 
+					return; 
+				}
+				
+				if (gamesToSkip <= 0) {
+					if (SuperRecovery.isPassed()) {
+						DoRecoveryMode();
+					}
+				} else {
+					gamesToSkip--;
+					if (gamesToSkip === 0) {
+						log("Recovery after this game !");
+					}
+					else {
+						log(`Skipping ${gamesToSkip} more games...`);
+					}
+				}
+				break;
+			default:
+				gameState = -1;
+				break;
+		}
+	},
+	endCallback: function() {
+		if (lastGame.cashedAt) {
+			if(gameState == 0) {
+				log("Won!");
+			} else {
+				log(`Won! Recovered from ${gameState} deep loss streak!`);
+			}
+			gameState = 0;
+			BetSoFar = SoftRecovery;
+		} else {
+			gameState++;
+			gamesToSkip = Skips.getValue();
+			if(gamesToSkip > 0) {
+				log(`Lost! Waiting ${gamesToSkip} games...`);
+			} else {
+				log("Lost!");
+			}
+		}
+	}
+};
+NormalMode.__proto__ = BaseMode;
+
+var MasterMode = {
+	startCallback: function() {
+		log("Master recovery startCallback");
+	},
+	endCallback: function() {
+		log("Master recovery endCallback");
+		gameMode = NormalMode;
+	}
+};
+MasterMode.__proto__ = BaseMode;
 // ------------------------------------------------------------------------------------------------------------------------
 function DoRecoveryMode() {
 	//log(`Bet so far this loss streak: ${BetSoFar}`);
@@ -145,93 +294,13 @@ var gameState = 0;
 var gamesToSkip = 0; 
 var BetSoFar = 0; 
 var games = 1;
+var gameMode = NormalMode;
 
 engine.on('GAME_STARTING', function()  {
-	if (MasterConditionPassed()) {
-		stop("Stop due to master condition")
-	}
-	if((games % 10) == 0) {
-		var sessionResult = Math.ceil(((userInfo.balance / 100) - startBalance) * 100) / 100;
-		log(`Current session result: ${sessionResult} bits`);
-		if (sessionResult >= ProfitThresholdToStopScript) {
-			gameState = -2;
-		}
-	}
-
-	switch(gameState) {
-		case -2:
-			stop("Stopped");
-			break;
-		case -1:
-			log("Triggering reset from skips array"); 
-			gameState = 0;
-			BetSoFar = SoftRecovery;
-			break;
-		case 0:
-			PlaceBet(BaseBet.getValue(), BaseCashout.getValue());
-			break;
-		case 1:
-		case 2:
-		case 3:
-		case 4:
-		case 5:
-		case 6:
-		case 7:
-		case 8:
-			if (gamesToSkip == -1 || gamesToSkip == 'r' || SuperRecovery.containsNow('r')) { 
-				gameState = -1; 
-				return; 
-			}
-
-			if (gamesToSkip == -2 || gamesToSkip == 's' || SuperRecovery.containsNow('s')) { 
-				gameState = -2; 
-				return; 
-			}
-			
-			if (gamesToSkip <= 0) {
-				if (SuperRecovery.isPassed()) {
-					DoRecoveryMode();
-				}
-			} else {
-				gamesToSkip--;
-				if (gamesToSkip === 0) {
-					log("Recovery after this game !");
-				}
-				else {
-					log(`Skipping ${gamesToSkip} more games...`);
-				}
-			}
-			break;
-		default:
-			gameState = -1;
-			break;
-	}
-	games++;
+	gameMode.start();
 });
 
 
 engine.on('GAME_ENDED', function() {
-	var lastGame = GetLastGame();
-	if (!lastGame.wager) {
-		return;
-	}
-	
-	if (lastGame.cashedAt) {
-		if(gameState == 0) {
-			log("Won!");
-		} else {
-			log(`Won! Recovered from ${gameState} deep loss streak!`);
-		}
-		gameState = 0;
-		BetSoFar = SoftRecovery;
-	} else {
-		gameState++;
-		gamesToSkip = Skips.getValue();
-		if(gamesToSkip > 0) {
-			log(`Lost! Waiting ${gamesToSkip} games...`);
-		} else {
-			log("Lost!");
-		}
-	}
-	TestMode.lastGame.reset();
+	gameMode.end();
 });
