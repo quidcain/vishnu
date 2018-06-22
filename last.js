@@ -39,14 +39,13 @@ const masterModeConfig = {
 	enable: true, //set to false to disable checks for masterRecovery
 	occurrence: [-3, 5, -4, 2],
 	threshold: [11, 3, 2, 1],
-	currentMasterSlot: undefined,
-	masterCashouts: [
+	cashouts: [
 		[1, 2, 3, 4],
 		[1, 2, 3, 4],
 		[1, 2, 3, 4],
 		[1, 2, 3, 4]
 	],
-	masterBets: [
+	bets: [
 		[1, 2, 3, 4],
 		[1, 2, 3, 4],
 		[1, 2, 3, 4],
@@ -200,7 +199,7 @@ NormalMode.prototype.statCallback = function(sessionResult) {
 	}
 };
 NormalMode.prototype.startCallback = function() {
-	if (masterMode.isPassed()) {
+	if (masterMode.enable && masterMode.isPassed()) {
 		masterMode.startCallback();
 		gameMode = masterMode;
 		return;
@@ -280,13 +279,29 @@ NormalMode.prototype.endCallback = function(lastGame) {
 // ------------------------------------------------------------------------------------------------------------------------
 function MasterMode(config) {
 	Object.assign(this, config);
+	this.currentMasterSlot = null;
+	this.currentBetIndex = 0; //index in bets and cashouts arrays
 };
 MasterMode.prototype = Object.create(BaseMode.prototype);
 MasterMode.prototype.startCallback = function() {
 	log("Master recovery startCallback");
+
+	if (this.currentIndex >= this.bets.length
+		|| this.currentIndex >= this.cashouts.length) {
+		this.currentIndex = 0;
+	}
+	const bet = this.bets[this.currentMasterSlot][this.currentIndex];
+	const cashout = this.cashouts[this.currentMasterSlot][this.currentIndex];
+	this.placeBet(bet, cashout);
+	this.currentIndex++;
 };
 MasterMode.prototype.endCallback = function(lastGame) {
 	log("Master recovery endCallback");
+	if (lastGame.cashedAt) {
+		log("Won!");
+	} else {
+		log("Lost!");
+	}
 	gameMode = normalMode;
 };
 MasterMode.prototype.isPassed = function() {
@@ -306,6 +321,7 @@ MasterMode.prototype.isPassed = function() {
 			log("due to passed");
 			log(`threshold = ${this.threshold[i]} ${this.occurrence[i]} times.`);
 			log(`(index of array = ${i}`);
+			this.currentMasterSlot = i;
 			return true;
 		}
 	}
