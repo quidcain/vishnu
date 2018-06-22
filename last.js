@@ -14,24 +14,24 @@ CyclicalArray.prototype.getValue = function() {
 	return this.values[this.currentIndex++];
 };
 // ------------------------------------------------------------------------------------------------------------------------
-var BaseBet = new CyclicalArray([1, 2, 3, 4]);    		// Set the base bet here.
+const BaseBet = new CyclicalArray([1, 2, 3, 4]);    		// Set the base bet here.
 // ------------------------------------------------------------------------------------------------------------------------
-var BaseCashout = new CyclicalArray([2, 1.5, 1.5, 3]);		// Set the base cashout here
+const BaseCashout = new CyclicalArray([2, 1.5, 1.5, 3]);		// Set the base cashout here
 // ------------------------------------------------------------------------------------------------------------------------
-var Skips = new CyclicalArray([0, 1, 2, 3, -0, 2, 3, -2]);
+const Skips = new CyclicalArray([0, 1, 2, 3, -0, 2, 3, -2]);
 // ------------------------------------------------------------------------------------------------------------------------
-var RecoveryCashouts = new CyclicalArray([1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2]);	// Set the recovery cashouts here
-var RecoveryBets = new CyclicalArray([5, 6, 7, 8, 9, 10, 11, 12]);	// Set the bets to do after a loss here
+const RecoveryCashouts = new CyclicalArray([1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2]);	// Set the recovery cashouts here
+const RecoveryBets = new CyclicalArray([5, 6, 7, 8, 9, 10, 11, 12]);	// Set the bets to do after a loss here
 // ------------------------------------------------------------------------------------------------------------------------
-var SoftRecovery = 0;	// Set this to zero for lower risk, set to one for lucky recovery...
+const SoftRecovery = 0;	// Set this to zero for lower risk, set to one for lucky recovery...
 // ------------------------------------------------------------------------------------------------------------------------
-var LuckyRecovery = 0;	// Set this to one if you feel especially lucky...
+const LuckyRecovery = 0;	// Set this to one if you feel especially lucky...
 // ------------------------------------------------------------------------------------------------------------------------
-var StopScriptOnContinuousLoss = 1;	// Set this to one to stop instead of reset
+const StopScriptOnContinuousLoss = 1;	// Set this to one to stop instead of reset
 // ------------------------------------------------------------------------------------------------------------------------
-var ProfitThresholdToStopScript = 545;
+const ProfitThresholdToStopScript = 545;
 // ------------------------------------------------------------------------------------------------------------------------
-var TestMode = {
+const TestMode = {
 	active: true,
 	lastGame: {
 		wager: false,
@@ -43,16 +43,16 @@ var TestMode = {
 	}
 };
 // ------------------------------------------------------------------------------------------------------------------------
-var SuperRecovery = {
+const SuperRecovery = {
 	occurrence: [2, 0, -1, 2, 3, 5, 2, 4, 5, 3, 3, 2],
 	threshold: [20, 0, 1.10, 10, 16, 12, 19, 21, 20, 32, 25, 28],
 	currentIndex: 0,
 	occurrenceCounter: 0,
-	isPassed: function () {
-	   var lastGame = engine.history.first();
-	   var curOccurr = this.occurrence[this.currentIndex];
-	   var curTresh = this.threshold[this.currentIndex];
-	   var returnValue = false;
+	isPassed() {
+	   const lastGame = engine.history.first();
+	   const curOccurr = this.occurrence[this.currentIndex];
+	   const curTresh = this.threshold[this.currentIndex];
+	   let returnValue = false;
 	   //log (`curOccurr = ${curOccurr} curTresh = ${curTresh}`); 
 	   if (curOccurr  == 0 && curTresh == 0) {
 	      this.occurrenceCounter = 0;
@@ -83,7 +83,7 @@ var SuperRecovery = {
 	   }
 	   return returnValue;
 	},
-	containsNow: function(sym) {
+	containsNow(sym) {
 		if (this.occurrence[this.currentIndex] == sym) {
 			return true;
 		}
@@ -94,10 +94,10 @@ var SuperRecovery = {
 	}
 };
 // ------------------------------------------------------------------------------------------------------------------------
-var MasterRecovery = {
+const MasterRecovery = {
 	enable: true, //set to false to disable checks for MasterRecovery
-	occurrence: [11, 5, 4, 2],
-	threshold: [2, 2, -2, 1],
+	occurrence: [-3, 5, -4, 2],
+	threshold: [11, 3, 2, 1],
 	currentMasterSlot: undefined,
 	masterCashouts: [
 		[1, 2, 3, 4],
@@ -111,23 +111,27 @@ var MasterRecovery = {
 		[1, 2, 3, 4],
 		[1, 2, 3, 4]
 	],
-	isPassed: function() {
-		var games = engine.history.toArray();
+	isPassed() {
+		const games = engine.history.toArray();
+		log("Checking MasterRecovery condition");
 		for (let i = 0; i < this.occurrence.length; i++) {
-			/*let curOccurr = 0;
-			for (let j = 0; j < occurrence[i]; j++) {
-				if (games[j] <= threshold[i]) {
-					curOccurr++;
-				}
+			const absoluteOccurr = this.occurrence[i];
+			const gamesToCompare = games.slice(0, absoluteOccurr);
+			/*let str = "";
+			for (let j in gamesToCompare) {
+				str += `${gamesToCompare[j].bust} `;
 			}
-			if (curOccurr == occurrence[i]) {
-				return true;	
-			}*/
-			var occurrenceGames = games.slice(0, this.occurrence[i]);
-			if (occurrenceGames.every(val => val <= this.threshold[i])) {
+			log(str);*/
+			if (gamesToCompare.every(game => this.occurrence[i] > 0 && game.bust <= this.threshold[i] || 
+											 this.occurrence[i] < 0 && game.bust >= this.threshold[i])) {
+				log("Activating MasterRecovery mode");
+				log("due to passed");
+				log(`threshold = ${this.threshold[i]} ${this.occurrence[i]} times.`);
+				log(`(index of array = ${i}`);
 				return true;
 			}
 		}
+		log("MasterRecovery didn't pass");
 		return false;
 	}
 };
@@ -136,7 +140,7 @@ if (MasterRecovery.occurrence.length != MasterRecovery.threshold.length) {
 }
 // ------------------------------------------------------------------------------------------------------------------------
 function GetLastGame() {
-	var lastGame = engine.history.first();
+	const lastGame = engine.history.first();
 	if (TestMode.active) {
 		lastGame.wager = TestMode.lastGame.wager;
 		if (TestMode.lastGame.cashout < lastGame.bust) {
@@ -146,11 +150,11 @@ function GetLastGame() {
 	return lastGame;
 }
 // ------------------------------------------------------------------------------------------------------------------------
-var BaseMode = {
-	statCallback: function() {},
-	start: function() {
+const BaseMode = {
+	statCallback() {},
+	start() {
 		if((games % 10) == 0) {
-			var sessionResult = Math.ceil(((userInfo.balance / 100) - startBalance) * 100) / 100;
+			const sessionResult = Math.ceil(((userInfo.balance / 100) - startBalance) * 100) / 100;
 			log(`Current session result: ${sessionResult} bits`);
 			this.statCallback();
 		}
@@ -159,25 +163,22 @@ var BaseMode = {
 		
 		games++;	
 	},
-	end: function() {
-		var lastGame = GetLastGame();
-		if (!lastGame.wager) {
-			return;
-		}
+	end() {
+		const lastGame = GetLastGame();
 		
-		this.endCallback();
+		this.endCallback(lastGame);
 
 		TestMode.lastGame.reset();	
 	}
 };
 // ------------------------------------------------------------------------------------------------------------------------
-var NormalMode = {
-	statCallback: function() {
+const NormalMode = {
+	statCallback() {
 		if (sessionResult >= ProfitThresholdToStopScript) {
 			gameState = -2;
 		}
 	},
-	startCallback: function() {
+	startCallback() {
 		if (MasterRecovery.isPassed()) {
 			MasterMode.startCallback();
 			gameMode = MasterMode;
@@ -232,7 +233,11 @@ var NormalMode = {
 				break;
 		}
 	},
-	endCallback: function() {
+	endCallback(lastGame) {
+		if (!lastGame.wager) {
+			log("Not betted");
+			return;
+		}
 		if (lastGame.cashedAt) {
 			if(gameState == 0) {
 				log("Won!");
@@ -254,11 +259,11 @@ var NormalMode = {
 };
 NormalMode.__proto__ = BaseMode;
 
-var MasterMode = {
-	startCallback: function() {
+const MasterMode = {
+	startCallback() {
 		log("Master recovery startCallback");
 	},
-	endCallback: function() {
+	endCallback(lastGame) {
 		log("Master recovery endCallback");
 		gameMode = NormalMode;
 	}
@@ -267,8 +272,8 @@ MasterMode.__proto__ = BaseMode;
 // ------------------------------------------------------------------------------------------------------------------------
 function DoRecoveryMode() {
 	//log(`Bet so far this loss streak: ${BetSoFar}`);
-	//var RecoverBet = Math.ceil((Math.pow(Math.ceil(100 / ((RecoveryCashouts[gameState-1] * 100) - 100)), gameState) * BetSoFar)); 
-	var RecoverBet = RecoveryBets.getValue();
+	//const RecoverBet = Math.ceil((Math.pow(Math.ceil(100 / ((RecoveryCashouts[gameState-1] * 100) - 100)), gameState) * BetSoFar)); 
+	const RecoverBet = RecoveryBets.getValue();
 	if (LuckyRecovery != 0) { 
 		RecoverBet += (LuckyRecovery * gameState); 
 	}
@@ -288,19 +293,13 @@ function PlaceBet(bits, cashout) {
 }
 // ------------------------------------------------------------------------------------------------------------------------
 
-var startBalance = userInfo.balance / 100; 
+let startBalance = userInfo.balance / 100; 
 log(`Starting script with balance ${startBalance}`);
-var gameState = 0; 
-var gamesToSkip = 0; 
-var BetSoFar = 0; 
-var games = 1;
-var gameMode = NormalMode;
+let gameState = 0; 
+let gamesToSkip = 0; 
+let BetSoFar = 0; 
+let games = 1;
+let gameMode = NormalMode;
 
-engine.on('GAME_STARTING', function()  {
-	gameMode.start();
-});
-
-
-engine.on('GAME_ENDED', function() {
-	gameMode.end();
-});
+engine.on('GAME_STARTING', () => gameMode.start());
+engine.on('GAME_ENDED', () => gameMode.end());
