@@ -36,7 +36,7 @@ const normalModeConfig = {
 Object.assign(normalModeConfig, baseModeConfig);
 // ------------------------------------------------------------------------------------------------------------------------
 const masterModeConfig = {
-	enable: true, //set to false to disable checks for masterRecovery
+	enabled: true, //set to false to disable checks for masterRecovery
 	occurrence: [-3, 5, -4, 2],
 	threshold: [11, 3, 2, 1],
 	cashouts: [
@@ -199,7 +199,7 @@ NormalMode.prototype.statCallback = function(sessionResult) {
 	}
 };
 NormalMode.prototype.startCallback = function() {
-	if (masterMode.enable && masterMode.isPassed()) {
+	if (masterMode.enabled && masterMode.isPassed()) {
 		masterMode.startCallback();
 		gameMode = masterMode;
 		return;
