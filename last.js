@@ -319,14 +319,14 @@ MasterMode.prototype = Object.create(BaseMode.prototype);
 MasterMode.prototype.startCallback = function() {
 	log("Master recovery startCallback");
 
-	if (this.currentIndex >= this.bets.length
-		|| this.currentIndex >= this.cashouts.length) {
-		this.currentIndex = 0;
+	if (this.currentBetIndex >= this.bets.length
+		|| this.currentBetIndex >= this.cashouts.length) {
+		this.currentBetIndex = 0;
 	}
-	const bet = this.bets[this.currentMasterSlot][this.currentIndex];
-	const cashout = this.cashouts[this.currentMasterSlot][this.currentIndex];
+	const bet = this.bets[this.currentMasterSlot][this.currentBetIndex];
+	const cashout = this.cashouts[this.currentMasterSlot][this.currentBetIndex];
 	this.placeBet(bet, cashout);
-	this.currentIndex++;
+	this.currentBetIndex++;
 };
 MasterMode.prototype.wonCallback = function(lastGame) {
 	log("Master recovery endCallback");
