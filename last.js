@@ -17,7 +17,7 @@ const testModeConfig = {
 // ------------------------------------------------------------------------------------------------------------------------
 const baseModeConfig = {
 	testMode: new TestMode(testModeConfig),
-	gamesInSession: 3
+	gamesInSession: 10
 };
 // ------------------------------------------------------------------------------------------------------------------------
 const superRecoveryConfig = {
@@ -33,7 +33,7 @@ const normalModeConfig = {
 	gameState: 0, 
 	gamesToSkip: 0,
 	softRecovery: 0,	// Set this to zero for lower risk, set to one for lucky recovery...	
-	profitThresholdToStopScript: 545,
+	profitThresholdToStopScript: 50,
 	baseBet: new CyclicalArray([1, 2, 3, 4]),    		// Set the base bet here.
 	baseCashout: new CyclicalArray([2, 1.5, 1.5, 3]),		// Set the base cashout here
 	skips: new CyclicalArray([0, 1, 2, 3, -0, 2, 3, -2]),
@@ -76,6 +76,7 @@ function TestMode(config) {
 			this.cashout = undefined;
 		}	
 	}
+	this.balance = 0; //bits
 }
 // ------------------------------------------------------------------------------------------------------------------------
 function CyclicalArray(array) {
@@ -165,7 +166,7 @@ function BaseMode(config) {
 };
 BaseMode.prototype.calculateSessionResult = function() {
 	if (this.testMode.active) {
-		return toBits(userInfo.balance) - this.startBalance;
+		return this.testMode.balance;
 	} else {
 		return toBits(userInfo.balance) - this.startBalance;
 	}
@@ -185,10 +186,24 @@ BaseMode.prototype.start = function() {
 BaseMode.prototype.end = function() {
 	const lastGame = this.getLastGame();
 	
-	this.endCallback(lastGame);
+	if (!lastGame.wager) {
+		log("Not betted");
+		return;
+	}
+	if (lastGame.cashedAt) {
+		this.wonCallback(lastGame);
+		//log(`Adding to current balance (${this.testMode.balance}) ${toBits(lastGame.wager * lastGame.cashedAt)}`);
+		this.testMode.balance += toBits(lastGame.wager * lastGame.cashedAt);
+	} else {
+		this.lostCallback(lastGame);
+		//log(`Removing from current balance (${this.testMode.balance}) ${toBits(lastGame.wager)}`);
+		this.testMode.balance -= toBits(lastGame.wager);
+	}
 
 	this.testMode.lastGame.reset();	
 };
+BaseMode.prototype.wonCallback = function(lastGame) {};
+BaseMode.prototype.lostCallback = function(lastGame) {};
 BaseMode.prototype.getLastGame = function() {
 	const lastGame = engine.history.first();
 	if (this.testMode.active) {
@@ -205,7 +220,7 @@ BaseMode.prototype.placeBet = function(bits, cashout) {
 	if (!this.testMode.active) {
 		engine.bet(toSatoshis(bits), cashout);
 	}
-	this.testMode.lastGame.wager = true;
+	this.testMode.lastGame.wager = toSatoshis(bits);
 	this.testMode.lastGame.cashout = cashout;
 	log(" ");
 };
@@ -275,29 +290,24 @@ NormalMode.prototype.startCallback = function() {
 			break;
 	}
 };
-NormalMode.prototype.endCallback = function(lastGame) {
-	if (!lastGame.wager) {
-		log("Not betted");
-		return;
-	}
-	if (lastGame.cashedAt) {
-		if(this.gameState == 0) {
-			log("Won!");
-		} else {
-			log(`Won! Recovered from ${this.gameState} deep loss streak!`);
-		}
-		this.gameState = 0;
-		this.betSoFar = this.softRecovery;
+NormalMode.prototype.wonCallback = function(lastGame) {
+	if(this.gameState == 0) {
+		log("Won!");
 	} else {
-		this.gameState++;
-		this.gamesToSkip = this.skips.getValue();
-		if(this.gamesToSkip > 0) {
-			log(`Lost! Waiting ${this.gamesToSkip} games...`);
-		} else {
-			log("Lost!");
-		}
+		log(`Won! Recovered from ${this.gameState} deep loss streak!`);
 	}
-};
+	this.gameState = 0;
+	this.betSoFar = this.softRecovery;
+}
+NormalMode.prototype.lostCallback = function(lastGame) {
+	this.gameState++;
+	this.gamesToSkip = this.skips.getValue();
+	if(this.gamesToSkip > 0) {
+		log(`Lost! Waiting ${this.gamesToSkip} games...`);
+	} else {
+		log("Lost!");
+	}
+}
 // ------------------------------------------------------------------------------------------------------------------------
 function MasterMode(config) {
 	BaseMode.call(this, config);
@@ -318,13 +328,14 @@ MasterMode.prototype.startCallback = function() {
 	this.placeBet(bet, cashout);
 	this.currentIndex++;
 };
-MasterMode.prototype.endCallback = function(lastGame) {
+MasterMode.prototype.wonCallback = function(lastGame) {
 	log("Master recovery endCallback");
-	if (lastGame.cashedAt) {
-		log("Won!");
-	} else {
-		log("Lost!");
-	}
+	log("Won!");
+	gameMode = normalMode;
+};
+MasterMode.prototype.lostCallback = function(lastGame) {
+	log("Master recovery endCallback");
+	log("Lost!");
 	gameMode = normalMode;
 };
 MasterMode.prototype.isPassed = function() {
@@ -341,9 +352,9 @@ MasterMode.prototype.isPassed = function() {
 		if (gamesToCompare.every(game => this.occurrence[i] > 0 && game.bust <= this.threshold[i] || 
 										 this.occurrence[i] < 0 && game.bust >= this.threshold[i])) {
 			log("Activating masterRecovery mode");
-			log("due to passed");
-			log(`threshold = ${this.threshold[i]} ${this.occurrence[i]} times.`);
-			log(`(index of array = ${i}`);
+			//log("due to passed");
+			//log(`threshold = ${this.threshold[i]} ${this.occurrence[i]} times.`);
+			//log(`(index of array = ${i})`);
 			this.currentMasterSlot = i;
 			return true;
 		}
