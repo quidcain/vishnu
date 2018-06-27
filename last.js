@@ -3,13 +3,11 @@ var config = {};
 const stopScriptOnContinuousLoss = 1;	// Set this to one to stop instead of reset
 // ------------------------------------------------------------------------------------------------------------------------
 const testModeConfig = {
-	active: true
+	active: true,
+	startBalance: 100
 };
 // ------------------------------------------------------------------------------------------------------------------------
 const baseModeConfig = {
-	startBalance: userInfo.balance / 100,
-	games: 1,
-	betSoFar: 0,
 	testMode: new TestMode(testModeConfig)
 };
 // ------------------------------------------------------------------------------------------------------------------------
@@ -148,11 +146,18 @@ Recovery.prototype.run = function() {
 // ------------------------------------------------------------------------------------------------------------------------
 function BaseMode(config) {
 	Object.assign(this, config);
+	this.games = 1;
+	this.betSoFar = 0;
+	if (this.testMode.active) {
+		this.startBalance = this.testMode.startBalance;
+	} else {
+		this.startBalance = userInfo.balance;
+	}
 };
 BaseMode.prototype.statCallback = function(sessionResult) {};
 BaseMode.prototype.start = function() {
 	if((this.games % 10) == 0) {
-		const sessionResult = Math.ceil(((userInfo.balance / 100) - this.startBalance) * 100) / 100;
+		const sessionResult = userInfo.balance - this.startBalance;
 		log(`Current session result: ${sessionResult} bits`);
 		this.statCallback(sessionResult);
 	}
