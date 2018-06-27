@@ -1,14 +1,23 @@
 var config = {};
 // ------------------------------------------------------------------------------------------------------------------------
+const SATOSHIS_IN_BIT = 100;
+function toSatoshis(bits) {
+	return bits * SATOSHIS_IN_BIT;
+}
+function toBits(satoshis) {
+	return satoshis / SATOSHIS_IN_BIT;
+}
+// ------------------------------------------------------------------------------------------------------------------------
 const stopScriptOnContinuousLoss = 1;	// Set this to one to stop instead of reset
 // ------------------------------------------------------------------------------------------------------------------------
 const testModeConfig = {
 	active: true,
-	startBalance: 100
+	startBalance: 100 //bits
 };
 // ------------------------------------------------------------------------------------------------------------------------
 const baseModeConfig = {
-	testMode: new TestMode(testModeConfig)
+	testMode: new TestMode(testModeConfig),
+	gamesInSession: 3
 };
 // ------------------------------------------------------------------------------------------------------------------------
 const superRecoveryConfig = {
@@ -151,13 +160,20 @@ function BaseMode(config) {
 	if (this.testMode.active) {
 		this.startBalance = this.testMode.startBalance;
 	} else {
-		this.startBalance = userInfo.balance;
+		this.startBalance = toBits(userInfo.balance);
+	}
+};
+BaseMode.prototype.calculateSessionResult = function() {
+	if (this.testMode.active) {
+		return toBits(userInfo.balance) - this.startBalance;
+	} else {
+		return toBits(userInfo.balance) - this.startBalance;
 	}
 };
 BaseMode.prototype.statCallback = function(sessionResult) {};
 BaseMode.prototype.start = function() {
-	if((this.games % 10) == 0) {
-		const sessionResult = userInfo.balance - this.startBalance;
+	if((this.games % this.gamesInSession) == 0) {
+		const sessionResult = this.calculateSessionResult();
 		log(`Current session result: ${sessionResult} bits`);
 		this.statCallback(sessionResult);
 	}
@@ -187,7 +203,7 @@ BaseMode.prototype.placeBet = function(bits, cashout) {
 	log(`Betting ${bits} for cashout ${cashout}x`);
 	this.betSoFar += bits;
 	if (!this.testMode.active) {
-		engine.bet(bits * 100, cashout);
+		engine.bet(toSatoshis(bits), cashout);
 	}
 	this.testMode.lastGame.wager = true;
 	this.testMode.lastGame.cashout = cashout;
@@ -195,6 +211,7 @@ BaseMode.prototype.placeBet = function(bits, cashout) {
 };
 // ------------------------------------------------------------------------------------------------------------------------
 function NormalMode(config) {
+	BaseMode.call(this, config);
 	Object.assign(this, config);
 };
 NormalMode.prototype = Object.create(BaseMode.prototype);
@@ -283,6 +300,7 @@ NormalMode.prototype.endCallback = function(lastGame) {
 };
 // ------------------------------------------------------------------------------------------------------------------------
 function MasterMode(config) {
+	BaseMode.call(this, config);
 	Object.assign(this, config);
 	this.currentMasterSlot = null;
 	this.currentBetIndex = 0; //index in bets and cashouts arrays
