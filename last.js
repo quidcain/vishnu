@@ -7,6 +7,11 @@ function toSatoshis(bits) {
 function toBits(satoshis) {
 	return satoshis / SATOSHIS_IN_BIT;
 }
+const onEnd = {
+	TO_NORMAL: "TO_NORMAL",
+	RESTART_WHOLE: "RESTART_WHOLE",
+	STOP_WHOLE: "RESTART_WHOLE"
+};
 // ------------------------------------------------------------------------------------------------------------------------
 const stopScriptOnContinuousLoss = 1;	// Set this to one to stop instead of reset
 // ------------------------------------------------------------------------------------------------------------------------
@@ -16,7 +21,6 @@ const testModeConfig = {
 };
 // ------------------------------------------------------------------------------------------------------------------------
 const baseModeConfig = {
-	testMode: new TestMode(testModeConfig),
 	gamesInSession: 10
 };
 // ------------------------------------------------------------------------------------------------------------------------
@@ -25,8 +29,8 @@ const superRecoveryConfig = {
 	threshold: [20, 0, 1.10, 10, 16, 12, 19, 21, 20, 32, 25, 28]
 };
 const recoveryConfig = {
-	cashouts: new CyclicalArray([1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2]),
-	bets: new CyclicalArray([5, 6, 7, 8, 9, 10, 11, 12]),
+	cashouts: [1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2],
+	bets: [5, 6, 7, 8, 9, 10, 11, 12],
 	luckyRecovery: 0 // Set this to one if you feel especially lucky...
 };
 const normalModeConfig = {
@@ -34,17 +38,16 @@ const normalModeConfig = {
 	gamesToSkip: 0,
 	softRecovery: 0,	// Set this to zero for lower risk, set to one for lucky recovery...	
 	profitThresholdToStopScript: 50,
-	baseBet: new CyclicalArray([1, 2, 3, 4]),    		// Set the base bet here.
-	baseCashout: new CyclicalArray([2, 1.5, 1.5, 3]),		// Set the base cashout here
-	skips: new CyclicalArray([0, 1, 2, 3, -0, 2, 3, -2]),
-	superRecovery: new SuperRecovery(superRecoveryConfig),
-	recovery: new Recovery(recoveryConfig)
+	baseBet: [1, 2, 3, 4],    		// Set the base bet here.
+	baseCashout: [2, 1.5, 1.5, 3],		// Set the base cashout here
+	skips: [0, 1, 2, 3, -0, 2, 3, -2]
 };
-Object.assign(normalModeConfig, baseModeConfig);
+//Object.assign(normalModeConfig, baseModeConfig);
 // ------------------------------------------------------------------------------------------------------------------------
 const masterModeConfig = {
 	enabled: true, //set to false to disable checks for masterRecovery
-	occurrence: [-3, 5, -4, 2],
+	onWin: onEnd.RESTART_WHOLE,
+	occurrence: [3, 5, -4, 2],
 	threshold: [11, 3, 2, 1],
 	cashouts: [
 		[1, 2, 3, 4],
@@ -59,7 +62,7 @@ const masterModeConfig = {
 		[1, 2, 3, 4]
 	],
 };
-Object.assign(masterModeConfig, baseModeConfig);
+//Object.assign(masterModeConfig, baseModeConfig);
 // ------------------------------------------------------------------------------------------------------------------------
 if (masterModeConfig.occurrence.length != masterModeConfig.threshold.length) {
 	stop("masterRecovery.occurrence must be equal masterRecovery.threshold")
@@ -92,8 +95,8 @@ CyclicalArray.prototype.getValue = function() {
 	return this.values[this.currentIndex++];
 };
 // ------------------------------------------------------------------------------------------------------------------------
-function SuperRecovery(config) {
-	Object.assign(this, config);
+function SuperRecovery() {
+	Object.assign(this, superRecoveryConfig);
 	this.currentIndex = 0;
 	this.occurrenceCounter = 0;
 }
@@ -142,8 +145,10 @@ SuperRecovery.prototype.containsNow = function(sym) {
 	return false;
 }
 // ------------------------------------------------------------------------------------------------------------------------
-function Recovery(config) {
-	Object.assign(this, config);
+function Recovery() {
+	Object.assign(this, recoveryConfig);
+	this.cashouts = new CyclicalArray(recoveryConfig.cashouts);
+	this.bets = new CyclicalArray(recoveryConfig.bets);
 }
 Recovery.prototype.run = function() {
 	let recoveryBet = this.bets.getValue();
@@ -154,8 +159,9 @@ Recovery.prototype.run = function() {
 	gameMode.placeBet(recoveryBet, this.cashouts.getValue());
 }
 // ------------------------------------------------------------------------------------------------------------------------
-function BaseMode(config) {
-	Object.assign(this, config);
+function BaseMode() {
+	Object.assign(this, baseModeConfig);
+	this.testMode = new TestMode(testModeConfig);
 	this.games = 1;
 	this.betSoFar = 0;
 	if (this.testMode.active) {
@@ -225,9 +231,14 @@ BaseMode.prototype.placeBet = function(bits, cashout) {
 	log(" ");
 };
 // ------------------------------------------------------------------------------------------------------------------------
-function NormalMode(config) {
-	BaseMode.call(this, config);
-	Object.assign(this, config);
+function NormalMode() {
+	BaseMode.call(this);
+	Object.assign(this, normalModeConfig);
+	this.baseBet = new CyclicalArray(normalModeConfig.baseBet);
+	this.baseCashout = new CyclicalArray(normalModeConfig.baseCashout);
+	this.skips = new CyclicalArray(normalModeConfig.skips);
+	this.superRecovery = new SuperRecovery();
+	this.recovery = new Recovery();
 };
 NormalMode.prototype = Object.create(BaseMode.prototype);
 NormalMode.prototype.statCallback = function(sessionResult) {
@@ -241,6 +252,7 @@ NormalMode.prototype.startCallback = function() {
 		gameMode = masterMode;
 		return;
 	}
+	//log (`gameState = ${this.gameState}`);
 	switch(this.gameState) {
 		case -2:
 			stop("Stopped");
@@ -309,9 +321,12 @@ NormalMode.prototype.lostCallback = function(lastGame) {
 	}
 }
 // ------------------------------------------------------------------------------------------------------------------------
-function MasterMode(config) {
-	BaseMode.call(this, config);
-	Object.assign(this, config);
+function MasterMode() {
+	if (!Object.values(onEnd).includes(masterModeConfig.onWin)) {
+		stop("Incomatible value of master mode on win");
+	}
+	BaseMode.call(this);
+	Object.assign(this, masterModeConfig);
 	this.currentMasterSlot = null;
 	this.currentBetIndex = 0; //index in bets and cashouts arrays
 };
@@ -331,7 +346,15 @@ MasterMode.prototype.startCallback = function() {
 MasterMode.prototype.wonCallback = function(lastGame) {
 	log("Master recovery endCallback");
 	log("Won!");
-	gameMode = normalMode;
+	if (this.onWin == onEnd.TO_NORMAL) {
+		gameMode = normalMode;
+	} else if (this.onWin == onEnd.RESTART_WHOLE) {
+		normalMode = new NormalMode();
+		masterMode = new MasterMode();
+		gameMode = normalMode;
+	} else {
+		stop("Forbidden win action in master module!")
+	}
 };
 MasterMode.prototype.lostCallback = function(lastGame) {
 	log("Master recovery endCallback");
@@ -363,9 +386,9 @@ MasterMode.prototype.isPassed = function() {
 	return false;
 };
 // ------------------------------------------------------------------------------------------------------------------------
-const normalMode = new NormalMode(normalModeConfig);
+let normalMode = new NormalMode();
 // ------------------------------------------------------------------------------------------------------------------------
-const masterMode = new MasterMode(masterModeConfig);
+let masterMode = new MasterMode();
 
 let gameMode = normalMode;
 log(`Starting script with balance ${gameMode.startBalance}`); 
