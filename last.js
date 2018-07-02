@@ -40,14 +40,14 @@ const normalModeConfig = {
 	profitThresholdToStopScript: 50,
 	baseBet: [1, 2, 3, 4],    		// Set the base bet here.
 	baseCashout: [2, 1.5, 1.5, 3],		// Set the base cashout here
-	skips: [0, 1, 2, 3, -0, 2, 3, -2]
+	skips: ["w", 0, 2, 3, -0, 2, 3, -2]
 };
 //Object.assign(normalModeConfig, baseModeConfig);
 // ------------------------------------------------------------------------------------------------------------------------
 const masterModeConfig = {
 	enabled: true, //set to false to disable checks for masterRecovery
 	onWin: onEnd.RESTART_WHOLE,
-	occurrence: [3, 5, -4, 2],
+	occurrence: [-3, 5, -4, 2],
 	threshold: [11, 3, 2, 1],
 	cashouts: [
 		[1, 2, 3, 4],
@@ -63,6 +63,13 @@ const masterModeConfig = {
 	],
 };
 //Object.assign(masterModeConfig, baseModeConfig);
+// ------------------------------------------------------------------------------------------------------------------------
+const snippingModeConfig = {
+	bets: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+	games: [10, 15, 25, 35, 45, 60, 25, 10, 15, 20],
+	cashouts: [1000, 2000, 2200, 3000, 4000, 5000, 6000, 500, 1000, 1500]
+};
+//Object.assign(snippingModeConfig, baseModeConfig);
 // ------------------------------------------------------------------------------------------------------------------------
 if (masterModeConfig.occurrence.length != masterModeConfig.threshold.length) {
 	stop("masterRecovery.occurrence must be equal masterRecovery.threshold")
@@ -247,6 +254,11 @@ NormalMode.prototype.statCallback = function(sessionResult) {
 	}
 };
 NormalMode.prototype.startCallback = function() {
+	if (this.gamesToSkip == "w" || this.superRecovery.containsNow("w,w")) {
+		snippingMode.startCallback();
+		gameMode = snippingMode;
+		return;
+	}
 	if (masterMode.enabled && masterMode.isPassed()) {
 		masterMode.startCallback();
 		gameMode = masterMode;
@@ -385,10 +397,43 @@ MasterMode.prototype.isPassed = function() {
 	log("masterRecovery didn't pass");
 	return false;
 };
+function SnippingMode() {
+	BaseMode.call(this);
+	Object.assign(this, snippingModeConfig);
+	this.currentIndex = 0;
+	this.currentGameCounter = 0;
+};
+SnippingMode.prototype = Object.create(BaseMode.prototype);
+SnippingMode.prototype.startCallback = function() {
+	log("Snipping Mode startCallback");
+	if (this.games[this.currentIndex] == undefined) {
+		this.currentIndex = 0;
+	}
+	if (this.games[this.currentIndex] == this.currentGameCounter) {
+		this.currentIndex++;
+		this.currentGameCounter = 0;
+	}
+	const bet = this.bets[this.currentIndex];
+	const cashout = this.cashouts[this.currentIndex];
+	this.placeBet(bet, cashout);
+	this.currentGameCounter++;
+};
+SnippingMode.prototype.wonCallback = function() {
+	log("Snipping Mode endCallback");
+	log("Won!");
+	gameMode = normalMode;
+};
+SnippingMode.prototype.lostCallback = function() {
+	log("Snipping Mode endCallback");
+	log("Lost!");
+	gameMode = normalMode;
+};
 // ------------------------------------------------------------------------------------------------------------------------
 let normalMode = new NormalMode();
 // ------------------------------------------------------------------------------------------------------------------------
 let masterMode = new MasterMode();
+// ------------------------------------------------------------------------------------------------------------------------
+let snippingMode = new SnippingMode();
 
 let gameMode = normalMode;
 log(`Starting script with balance ${gameMode.startBalance}`); 
