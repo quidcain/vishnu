@@ -344,6 +344,7 @@ function MasterMode() {
 	Object.assign(this, masterModeConfig);
 	this.currentMasterSlot = null;
 	this.currentBetIndex = 0; //index in bets and cashouts arrays
+	this.superRecovery = new SuperRecovery();
 };
 MasterMode.prototype = Object.create(BaseMode.prototype);
 MasterMode.prototype.startCallback = function() {
@@ -405,21 +406,26 @@ function SnippingMode() {
 	Object.assign(this, snippingModeConfig);
 	this.currentIndex = 0;
 	this.currentGameCounter = 0;
+	this.superRecovery = new SuperRecovery();
 };
 SnippingMode.prototype = Object.create(BaseMode.prototype);
 SnippingMode.prototype.startCallback = function() {
 	log("Snipping Mode startCallback");
-	if (this.games[this.currentIndex] == undefined) {
-		this.currentIndex = 0;
+	if (this.superRecovery.isPassed()) {
+		if (this.games[this.currentIndex] == undefined) {
+			this.currentIndex = 0;
+		}
+		if (this.games[this.currentIndex] == this.currentGameCounter) {
+			this.currentIndex++;
+			this.currentGameCounter = 0;
+		}
+		const bet = this.bets[this.currentIndex];
+		const cashout = this.cashouts[this.currentIndex];
+		this.placeBet(bet, cashout);
+		this.currentGameCounter++;
+	} else {
+		log("superRecovery2 didn't pass")
 	}
-	if (this.games[this.currentIndex] == this.currentGameCounter) {
-		this.currentIndex++;
-		this.currentGameCounter = 0;
-	}
-	const bet = this.bets[this.currentIndex];
-	const cashout = this.cashouts[this.currentIndex];
-	this.placeBet(bet, cashout);
-	this.currentGameCounter++;
 };
 SnippingMode.prototype.wonCallback = function() {
 	log("Snipping Mode endCallback");
