@@ -10,7 +10,7 @@ function toBits(satoshis) {
 const onEnd = {
 	TO_NORMAL: "TO_NORMAL",
 	RESTART_WHOLE: "RESTART_WHOLE",
-	STOP_WHOLE: "RESTART_WHOLE"
+	STOP_WHOLE: "STOP_WHOLE"
 };
 // ------------------------------------------------------------------------------------------------------------------------
 const stopScriptOnContinuousLoss = 1;	// Set this to one to stop instead of reset
@@ -65,6 +65,7 @@ const masterModeConfig = {
 //Object.assign(masterModeConfig, baseModeConfig);
 // ------------------------------------------------------------------------------------------------------------------------
 const snippingModeConfig = {
+	onWin: onEnd.STOP_WHOLE,
 	bets: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
 	games: [10, 15, 25, 35, 45, 60, 25, 10, 15, 20],
 	cashouts: [1000, 2000, 2200, 3000, 4000, 5000, 6000, 500, 1000, 1500]
@@ -257,7 +258,8 @@ NormalMode.prototype.startCallback = function() {
 	if (this.gamesToSkip == "w" || this.superRecovery.containsNow("w,w")) {
 		snippingMode.startCallback();
 		this.gamesToSkip = 0;
-		this.superRecovery.currentIndex++
+		this.superRecovery.currentIndex++;
+		gameMode = snippingMode;
 		return;
 	}
 	if (masterMode.enabled && masterMode.isPassed()) {
@@ -422,12 +424,16 @@ SnippingMode.prototype.startCallback = function() {
 SnippingMode.prototype.wonCallback = function() {
 	log("Snipping Mode endCallback");
 	log("Won!");
-	gameMode = normalMode;
+	if (this.onWin == onEnd.STOP_WHOLE) {
+		stop("Stopped after snippingMode");
+	} else if (this.onWin == onEnd.TO_NORMAL) {
+		gameMode = normalMode;
+	} 
 };
 SnippingMode.prototype.lostCallback = function() {
 	log("Snipping Mode endCallback");
 	log("Lost!");
-	gameMode = normalMode;
+	stop("Stopped after snippingMode");
 };
 // ------------------------------------------------------------------------------------------------------------------------
 let testMode = new TestMode(testModeConfig);
