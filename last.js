@@ -166,9 +166,9 @@ Recovery.prototype.run = function() {
 	gameMode.placeBet(recoveryBet, this.cashouts.getValue());
 }
 // ------------------------------------------------------------------------------------------------------------------------
-function BaseMode() {
+function BaseMode(testMode) {
 	Object.assign(this, baseModeConfig);
-	this.testMode = new TestMode(testModeConfig);
+	this.testMode = testMode;
 	this.games = 1;
 	this.betSoFar = 0;
 	if (this.testMode.active) {
@@ -239,7 +239,7 @@ BaseMode.prototype.placeBet = function(bits, cashout) {
 };
 // ------------------------------------------------------------------------------------------------------------------------
 function NormalMode() {
-	BaseMode.call(this);
+	BaseMode.call(this, testMode);
 	Object.assign(this, normalModeConfig);
 	this.baseBet = new CyclicalArray(normalModeConfig.baseBet);
 	this.baseCashout = new CyclicalArray(normalModeConfig.baseCashout);
@@ -256,7 +256,8 @@ NormalMode.prototype.statCallback = function(sessionResult) {
 NormalMode.prototype.startCallback = function() {
 	if (this.gamesToSkip == "w" || this.superRecovery.containsNow("w,w")) {
 		snippingMode.startCallback();
-		gameMode = snippingMode;
+		this.gamesToSkip = 0;
+		this.superRecovery.currentIndex++
 		return;
 	}
 	if (masterMode.enabled && masterMode.isPassed()) {
@@ -337,7 +338,7 @@ function MasterMode() {
 	if (!Object.values(onEnd).includes(masterModeConfig.onWin)) {
 		stop("Incomatible value of master mode on win");
 	}
-	BaseMode.call(this);
+	BaseMode.call(this, testMode);
 	Object.assign(this, masterModeConfig);
 	this.currentMasterSlot = null;
 	this.currentBetIndex = 0; //index in bets and cashouts arrays
@@ -398,7 +399,7 @@ MasterMode.prototype.isPassed = function() {
 	return false;
 };
 function SnippingMode() {
-	BaseMode.call(this);
+	BaseMode.call(this, testMode);
 	Object.assign(this, snippingModeConfig);
 	this.currentIndex = 0;
 	this.currentGameCounter = 0;
@@ -429,11 +430,13 @@ SnippingMode.prototype.lostCallback = function() {
 	gameMode = normalMode;
 };
 // ------------------------------------------------------------------------------------------------------------------------
-let normalMode = new NormalMode();
+let testMode = new TestMode(testModeConfig);
 // ------------------------------------------------------------------------------------------------------------------------
-let masterMode = new MasterMode();
+let normalMode = new NormalMode(testMode);
 // ------------------------------------------------------------------------------------------------------------------------
-let snippingMode = new SnippingMode();
+let masterMode = new MasterMode(testMode);
+// ------------------------------------------------------------------------------------------------------------------------
+let snippingMode = new SnippingMode(testMode);
 
 let gameMode = normalMode;
 log(`Starting script with balance ${gameMode.startBalance}`); 
