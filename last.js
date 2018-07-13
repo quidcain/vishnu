@@ -64,6 +64,10 @@ const masterModeConfig = {
 };
 //Object.assign(masterModeConfig, baseModeConfig);
 // ------------------------------------------------------------------------------------------------------------------------
+const superRecovery2Config = {
+	occurrence: [-2, 0, -1, 2, 3, 5, 2, 4, 5, 3, 3, 2],
+	threshold: [20, 0, 1.10, 10, 16, 12, 19, 21, 20, 32, 25, 28]
+};
 const snippingModeConfig = {
 	onWin: onEnd.STOP_WHOLE,
 	bets: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
@@ -103,8 +107,8 @@ CyclicalArray.prototype.getValue = function() {
 	return this.values[this.currentIndex++];
 };
 // ------------------------------------------------------------------------------------------------------------------------
-function SuperRecovery() {
-	Object.assign(this, superRecoveryConfig);
+function SuperRecovery(config) {
+	Object.assign(this, config);
 	this.currentIndex = 0;
 	this.occurrenceCounter = 0;
 }
@@ -245,7 +249,7 @@ function NormalMode() {
 	this.baseBet = new CyclicalArray(normalModeConfig.baseBet);
 	this.baseCashout = new CyclicalArray(normalModeConfig.baseCashout);
 	this.skips = new CyclicalArray(normalModeConfig.skips);
-	this.superRecovery = new SuperRecovery();
+	this.superRecovery = new SuperRecovery(superRecoveryConfig);
 	this.recovery = new Recovery();
 };
 NormalMode.prototype = Object.create(BaseMode.prototype);
@@ -406,7 +410,7 @@ function SnippingMode() {
 	Object.assign(this, snippingModeConfig);
 	this.currentIndex = 0;
 	this.currentGameCounter = 0;
-	this.superRecovery = new SuperRecovery();
+	this.superRecovery = new SuperRecovery(superRecovery2Config);
 };
 SnippingMode.prototype = Object.create(BaseMode.prototype);
 SnippingMode.prototype.startCallback = function() {
