@@ -88,7 +88,7 @@ const snippingModeConfig = {
 //Object.assign(snippingModeConfig, baseModeConfig);
 // ------------------------------------------------------------------------------------------------------------------------
 const martingaleModeConfig = {
-	onWin: onEnd.TO_MASTER,
+	onWin: onEnd.TO_NORMAL,
 	onLoss: onEnd.PROCEED,
 	bets: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
 	cashouts: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
@@ -474,8 +474,8 @@ function MartingaleMode() {
 	BaseMode.call(this, testMode);
 	Object.assign(this, martingaleModeConfig);
 	this.currentIndex = 0;
-	this.bets = new CyclicalArray(martingaleModeConfig.bets);
-	this.cashouts = new CyclicalArray(martingaleModeConfig.cashouts);
+	this.bets = new StoppableArray(martingaleModeConfig.bets);
+	this.cashouts = new StoppableArray(martingaleModeConfig.cashouts);
 };
 MartingaleMode.prototype = Object.create(BaseMode.prototype);
 MartingaleMode.prototype.startCallback = function() {
