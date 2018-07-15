@@ -368,7 +368,7 @@ function MasterMode() {
 	}
 	BaseMode.call(this, testMode);
 	Object.assign(this, masterModeConfig);
-	this.currentMasterSlot = null;
+	this.currentMasterSlot = 0;
 	this.currentBetIndex = 0; //index in bets and cashouts arrays
 	this.superRecovery = new SuperRecovery();
 };
