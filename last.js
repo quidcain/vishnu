@@ -34,11 +34,12 @@ const baseModeConfig = {
 // ------------------------------------------------------------------------------------------------------------------------
 const superRecoveryConfig = {
 	occurrence: [2, 0, -1, 2, 3, 5, 2, 4, 5, 3, 3, 2],
-	threshold: [20, 0, 1.10, 10, 16, 12, 19, 21, 20, 32, 25, 28]
+	threshold: [20, 0, 1.10, 10, 16, 12, 19, 21, 20, 32, 25, 28],
+	frozen: false
 };
 const recoveryConfig = {
 	cashouts: [1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2],
-	bets: [5, 6, 7, 8, 9, 10, 11, 12],
+	bets: ["5m", 6, 7, 8, 9, 10, 11, 12],
 	luckyRecovery: 0 // Set this to one if you feel especially lucky...
 };
 const normalModeConfig = {
@@ -48,7 +49,7 @@ const normalModeConfig = {
 	profitThresholdToStopScript: 50,
 	baseBet: [1, 2, 3, 4],    		// Set the base bet here.
 	baseCashout: [2, 1.5, 1.5, 3],		// Set the base cashout here
-	skips: ["w", 0, 2, 3, -0, 2, 3, -2]
+	skips: [0, 0, 2, 3, -0, 2, 3, -2]
 };
 //Object.assign(normalModeConfig, baseModeConfig);
 // ------------------------------------------------------------------------------------------------------------------------
@@ -145,7 +146,7 @@ SuperRecovery.prototype.isPassed = function() {
 	const curOccurr = this.occurrence[this.currentIndex];
 	const curTresh = this.threshold[this.currentIndex];
 	let returnValue = false;
-	//log (`curOccurr = ${curOccurr} curTresh = ${curTresh}`); 
+	log (`curOccurr = ${curOccurr} curTresh = ${curTresh}`); 
 	if (curOccurr  == 0 && curTresh == 0) {
 		this.occurrenceCounter = 0;
 	} else if (curOccurr > 0 && lastGame.bust <= curTresh) {
@@ -161,7 +162,7 @@ SuperRecovery.prototype.isPassed = function() {
 		} else if (curOccurr >= 0) {
 			log(`Val is less than ${curTresh} continuously in ${curOccurr} running times ${lastGame.bust}x`);
 		} else if (curOccurr <= 0) {
-		log(`Val is greater than ${curTresh} continuously in ${Math.abs(curOccurr)} running times ${lastGame.bust}x`);
+			log(`Val is greater than ${curTresh} continuously in ${Math.abs(curOccurr)} running times ${lastGame.bust}x`);
 		}
 		returnValue = true;
 		this.occurrenceCounter = 0;
@@ -171,6 +172,9 @@ SuperRecovery.prototype.isPassed = function() {
 	}
 	//log(`Game crashed at ${lastGame.bust}x`);
 	if (this.currentIndex == this.occurrence.length - 1) {
+		this.currentIndex = 0;
+	}
+	if (this.frozen) {
 		this.currentIndex = 0;
 	}
 	return returnValue;
@@ -183,7 +187,12 @@ SuperRecovery.prototype.containsNow = function(sym) {
 		return true;
 	}
 	return false;
-}
+};
+SuperRecovery.prototype.moveToNext = function() {
+	if (!this.frozen) {
+		this.superRecovery.currentIndex++;
+	}
+};
 // ------------------------------------------------------------------------------------------------------------------------
 function Recovery() {
 	Object.assign(this, recoveryConfig);
@@ -192,6 +201,10 @@ function Recovery() {
 }
 Recovery.prototype.run = function() {
 	let recoveryBet = this.bets.getValue();
+	if (recoveryBet.replace) {
+		this.rawRecoveryBet = recoveryBet;
+		recoveryBet = recoveryBet.replace(/\D/g,'');
+	}
 	if (this.luckyRecovery != 0) { 
 		recoveryBet += (this.luckyRecovery * gameMode.gameState); 
 	}
@@ -363,6 +376,7 @@ NormalMode.prototype.wonCallback = function(lastGame) {
 		log(`Won! Recovered from ${this.gameState} deep loss streak!`);
 	}
 	this.gameState = 0;
+	delete this.recovery.rawRecoveryBet;
 	this.betSoFar = this.softRecovery;
 }
 NormalMode.prototype.lostCallback = function(lastGame) {
@@ -372,6 +386,10 @@ NormalMode.prototype.lostCallback = function(lastGame) {
 		log(`Lost! Waiting ${this.gamesToSkip} games...`);
 	} else {
 		log("Lost!");
+	}
+	if (this.recovery.rawRecoveryBet && this.recovery.rawRecoveryBet.replace(/[0-9]/g, "") == "m") {
+		log("Moving to martingaleMode from recovery");
+		gameMode = martingaleMode;
 	}
 }
 // ------------------------------------------------------------------------------------------------------------------------
@@ -414,17 +432,9 @@ MasterMode.prototype.isPassed = function() {
 	for (let i = 0; i < this.occurrence.length; i++) {
 		const absoluteOccurr = this.occurrence[i];
 		const gamesToCompare = games.slice(0, absoluteOccurr);
-		/*let str = "";
-		for (let j in gamesToCompare) {
-			str += `${gamesToCompare[j].bust} `;
-		}
-		log(str);*/
 		if (gamesToCompare.every(game => this.occurrence[i] > 0 && game.bust <= this.threshold[i] || 
 										 this.occurrence[i] < 0 && game.bust >= this.threshold[i])) {
 			log("Activating masterRecovery mode");
-			//log("due to passed");
-			//log(`threshold = ${this.threshold[i]} ${this.occurrence[i]} times.`);
-			//log(`(index of array = ${i})`);
 			this.currentMasterSlot = i;
 			return true;
 		}
