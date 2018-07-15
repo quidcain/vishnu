@@ -122,6 +122,19 @@ CyclicalArray.prototype.getValue = function() {
 	return this.values[this.currentIndex++];
 };
 // ------------------------------------------------------------------------------------------------------------------------
+function StoppableArray(array) {
+	this.currentIndex = 0;
+	this.values = array;
+};
+StoppableArray.prototype.getValue = function() {
+	if (!this.values || this.values.length == 0)
+		return 0;
+	if (this.currentIndex == this.values.length) {
+		stop("Array have ended");
+	}
+	return this.values[this.currentIndex++];
+};
+// ------------------------------------------------------------------------------------------------------------------------
 function SuperRecovery(config) {
 	Object.assign(this, config);
 	this.currentIndex = 0;
