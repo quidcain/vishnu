@@ -10,7 +10,9 @@ function toBits(satoshis) {
 const onEnd = {
 	TO_NORMAL: "TO_NORMAL",
 	RESTART_WHOLE: "RESTART_WHOLE",
-	STOP_WHOLE: "STOP_WHOLE"
+	STOP_WHOLE: "STOP_WHOLE",
+	TO_MASTER: "TO_MASTER",
+	PROCEED: "PROCEED"
 };
 // ------------------------------------------------------------------------------------------------------------------------
 const stopScriptOnContinuousLoss = 1;	// Set this to one to stop instead of reset
@@ -62,6 +64,9 @@ const masterModeConfig = {
 		[1, 2, 3, 4]
 	],
 };
+if (masterModeConfig.occurrence.length != masterModeConfig.threshold.length) {
+	stop("masterRecovery.occurrence must be equal masterRecovery.threshold")
+}
 //Object.assign(masterModeConfig, baseModeConfig);
 // ------------------------------------------------------------------------------------------------------------------------
 const superRecovery2Config = {
@@ -76,9 +81,13 @@ const snippingModeConfig = {
 };
 //Object.assign(snippingModeConfig, baseModeConfig);
 // ------------------------------------------------------------------------------------------------------------------------
-if (masterModeConfig.occurrence.length != masterModeConfig.threshold.length) {
-	stop("masterRecovery.occurrence must be equal masterRecovery.threshold")
-}
+const martingaleModeConfig = {
+	onWin: onEnd.TO_MASTER,
+	onLoss: onEnd.PROCEED,
+	bets: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+	cashouts: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
+};
+// ------------------------------------------------------------------------------------------------------------------------
 function TestMode(config) {
 	Object.assign(this, config);
 	this.currentIndex = 0;
@@ -371,6 +380,8 @@ MasterMode.prototype.wonCallback = function(lastGame) {
 	} else if (this.onWin == onEnd.RESTART_WHOLE) {
 		normalMode = new NormalMode();
 		masterMode = new MasterMode();
+		snippingMode = new SnippingMode();
+		martingaleMode = new MartingaleMode();
 		gameMode = normalMode;
 	} else {
 		stop("Forbidden win action in master module!")
@@ -405,6 +416,7 @@ MasterMode.prototype.isPassed = function() {
 	log("masterRecovery didn't pass");
 	return false;
 };
+// ------------------------------------------------------------------------------------------------------------------------
 function SnippingMode() {
 	BaseMode.call(this, testMode);
 	Object.assign(this, snippingModeConfig);
@@ -446,13 +458,49 @@ SnippingMode.prototype.lostCallback = function() {
 	stop("Stopped after snippingMode");
 };
 // ------------------------------------------------------------------------------------------------------------------------
+function MartingaleMode() {
+	BaseMode.call(this, testMode);
+	Object.assign(this, martingaleModeConfig);
+	this.currentIndex = 0;
+	this.bets = new CyclicalArray(martingaleConfig.bets);
+	this.cashouts = new CyclicalArray(martingaleConfig.cashouts);
+};
+MartingaleMode.prototype = Object.create(BaseMode.prototype);
+MartingaleMode.prototype.startCallback = function() {
+	log("Martingale Mode startCallback");
+	this.placeBet(this.bets.getValue(), this.cashouts.getValue());
+};
+MartingaleMode.prototype.wonCallback = function() {
+	log("Martingale Mode endCallback");
+	log("Won!");
+	if (this.onWin == onEnd.TO_MASTER) {
+		gameMode = masterMode;
+	} else if (this.onWin == onEnd.TO_NORMAL) {
+		gameMode = normalMode;
+	} 
+};
+MartingaleMode.prototype.lostCallback = function() {
+	log("Martingale Mode endCallback");
+	log("Lost!");
+	if (this.onLoss == onEnd.RESTART_WHOLE) {
+		normalMode = new NormalMode();
+		masterMode = new MasterMode();
+		snippingMode = new SnippingMode();
+		martingaleMode = new MartingaleMode();
+		gameMode = normalMode;
+	} else if (this.onLoss == onEnd.PROCEED) {
+	} 
+};
+// ------------------------------------------------------------------------------------------------------------------------
 let testMode = new TestMode(testModeConfig);
 // ------------------------------------------------------------------------------------------------------------------------
-let normalMode = new NormalMode(testMode);
+let normalMode = new NormalMode();
 // ------------------------------------------------------------------------------------------------------------------------
-let masterMode = new MasterMode(testMode);
+let masterMode = new MasterMode();
 // ------------------------------------------------------------------------------------------------------------------------
-let snippingMode = new SnippingMode(testMode);
+let snippingMode = new SnippingMode();
+// ------------------------------------------------------------------------------------------------------------------------
+let martingaleMode = new MartingaleMode();
 
 let gameMode = normalMode;
 log(`Starting script with balance ${gameMode.startBalance}`); 
