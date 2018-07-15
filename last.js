@@ -8,11 +8,17 @@ function toBits(satoshis) {
 	return satoshis / SATOSHIS_IN_BIT;
 }
 const onEnd = {
-	TO_NORMAL: "TO_NORMAL",
-	RESTART_WHOLE: "RESTART_WHOLE",
-	STOP_WHOLE: "STOP_WHOLE",
-	TO_MASTER: "TO_MASTER",
-	PROCEED: "PROCEED"
+	TO_NORMAL: () => gameMode = normalMode,
+	RESTART_WHOLE: function() {
+		normalMode = new NormalMode();
+		masterMode = new MasterMode();
+		snippingMode = new SnippingMode();
+		martingaleMode = new MartingaleMode();
+		gameMode = normalMode;
+	},
+	STOP_WHOLE: () => stop("Stopped on end"),
+	TO_MASTER: () => gameMode = masterMode,
+	PROCEED: () => {}
 };
 // ------------------------------------------------------------------------------------------------------------------------
 const stopScriptOnContinuousLoss = 1;	// Set this to one to stop instead of reset
@@ -275,6 +281,13 @@ NormalMode.prototype.startCallback = function() {
 		gameMode = snippingMode;
 		return;
 	}
+	if (this.gamesToSkip == "m" || this.superRecovery.containsNow("m,m")) {
+		martingaleMode.startCallback();
+		this.gamesToSkip = 0;
+		this.superRecovery.currentIndex++;
+		gameMode = martingaleMode;
+		return;
+	}
 	if (masterMode.enabled && masterMode.isPassed()) {
 		masterMode.startCallback();
 		gameMode = masterMode;
@@ -375,17 +388,7 @@ MasterMode.prototype.startCallback = function() {
 MasterMode.prototype.wonCallback = function(lastGame) {
 	log("Master recovery endCallback");
 	log("Won!");
-	if (this.onWin == onEnd.TO_NORMAL) {
-		gameMode = normalMode;
-	} else if (this.onWin == onEnd.RESTART_WHOLE) {
-		normalMode = new NormalMode();
-		masterMode = new MasterMode();
-		snippingMode = new SnippingMode();
-		martingaleMode = new MartingaleMode();
-		gameMode = normalMode;
-	} else {
-		stop("Forbidden win action in master module!")
-	}
+	this.onWin()
 };
 MasterMode.prototype.lostCallback = function(lastGame) {
 	log("Master recovery endCallback");
@@ -446,11 +449,7 @@ SnippingMode.prototype.startCallback = function() {
 SnippingMode.prototype.wonCallback = function() {
 	log("Snipping Mode endCallback");
 	log("Won!");
-	if (this.onWin == onEnd.STOP_WHOLE) {
-		stop("Stopped after snippingMode");
-	} else if (this.onWin == onEnd.TO_NORMAL) {
-		gameMode = normalMode;
-	} 
+	this.onWin();
 };
 SnippingMode.prototype.lostCallback = function() {
 	log("Snipping Mode endCallback");
@@ -462,8 +461,8 @@ function MartingaleMode() {
 	BaseMode.call(this, testMode);
 	Object.assign(this, martingaleModeConfig);
 	this.currentIndex = 0;
-	this.bets = new CyclicalArray(martingaleConfig.bets);
-	this.cashouts = new CyclicalArray(martingaleConfig.cashouts);
+	this.bets = new CyclicalArray(martingaleModeConfig.bets);
+	this.cashouts = new CyclicalArray(martingaleModeConfig.cashouts);
 };
 MartingaleMode.prototype = Object.create(BaseMode.prototype);
 MartingaleMode.prototype.startCallback = function() {
@@ -473,23 +472,12 @@ MartingaleMode.prototype.startCallback = function() {
 MartingaleMode.prototype.wonCallback = function() {
 	log("Martingale Mode endCallback");
 	log("Won!");
-	if (this.onWin == onEnd.TO_MASTER) {
-		gameMode = masterMode;
-	} else if (this.onWin == onEnd.TO_NORMAL) {
-		gameMode = normalMode;
-	} 
+	this.onWin(); 
 };
 MartingaleMode.prototype.lostCallback = function() {
 	log("Martingale Mode endCallback");
 	log("Lost!");
-	if (this.onLoss == onEnd.RESTART_WHOLE) {
-		normalMode = new NormalMode();
-		masterMode = new MasterMode();
-		snippingMode = new SnippingMode();
-		martingaleMode = new MartingaleMode();
-		gameMode = normalMode;
-	} else if (this.onLoss == onEnd.PROCEED) {
-	} 
+	this.onLoss(); 
 };
 // ------------------------------------------------------------------------------------------------------------------------
 let testMode = new TestMode(testModeConfig);
